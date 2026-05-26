@@ -362,10 +362,121 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); co
   flex: 1;
 }
 
+/* ── 태블릿 ── */
 @media (max-width: 900px) {
-  .charts-grid, .salary-container, .form-grid { grid-template-columns: 1fr; }
-  .stats-grid { grid-template-columns: 1fr; }
+  .charts-grid, .salary-container { grid-template-columns: 1fr; }
+  .sidebar { width: 64px; }
+  .logo-text { display: none; }
+  .nav-item { justify-content: center; padding: 14px 0; font-size: 0; gap: 0; border-left: none; border-bottom: 3px solid transparent; }
+  .nav-item .nav-icon { font-size: 1.3rem; }
+  .nav-item.active { border-bottom-color: var(--primary); border-left: none; }
+}
+
+/* ── 모바일 ── */
+@media (max-width: 600px) {
+  /* 하단 탭바로 전환 */
+  .app { flex-direction: column; }
+
+  .sidebar {
+    width: 100%;
+    height: 60px;
+    order: 2;
+    flex-direction: row;
+    overflow: visible;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    border-top: 1px solid #334155;
+    box-shadow: 0 -2px 12px rgba(0,0,0,0.2);
+  }
+
+  .logo { display: none; }
+
+  .nav-links {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    padding: 0;
+  }
+
+  .nav-item {
+    flex: 1;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 6px 0 4px;
+    font-size: 0.6rem;
+    gap: 2px;
+    border-left: none;
+    border-top: 3px solid transparent;
+    border-bottom: none;
+    color: var(--sidebar-text);
+  }
+
+  /* 아이콘 뒤 텍스트 복원 (span.nav-label 로 처리) */
+  .nav-item .nav-label {
+    display: block;
+    font-size: 0.6rem;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .nav-item .nav-icon { font-size: 1.2rem; }
+  .nav-item.active { border-top-color: var(--primary); color: #93c5fd; background: transparent; }
+
+  /* 메인 콘텐츠 – 하단 탭바 높이만큼 패딩 */
+  .main-content {
+    order: 1;
+    padding: 16px;
+    padding-bottom: 72px;
+    height: 100dvh;
+    overflow-y: auto;
+  }
+
+  .page-title { font-size: 1.2rem; margin-bottom: 14px; }
+
+  /* 카드 */
+  .card { padding: 16px; }
+
+  /* 통계 카드 – 가로 3열 유지, 작게 */
+  .stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .stat-card { padding: 12px 10px; }
+  .stat-label { font-size: 0.68rem; }
+  .stat-value { font-size: 1.1rem; }
+
+  /* 차트 세로 배치 */
+  .charts-grid { grid-template-columns: 1fr; gap: 12px; }
+
+  /* 폼 1열 */
+  .form-grid { grid-template-columns: 1fr; gap: 12px; }
   .form-group.full-width { grid-column: span 1; }
-  .sidebar { width: 60px; }
-  .logo-text, .nav-item span:last-child { display: none; }
+  .salary-container { grid-template-columns: 1fr; gap: 12px; }
+
+  /* 기간 선택 */
+  .period-selector { flex-wrap: wrap; gap: 8px; }
+  .period-selector select { font-size: 0.85rem; padding: 7px 8px; }
+
+  /* 툴바 */
+  .toolbar { flex-direction: column; align-items: stretch; }
+  .filter-group, .import-group { flex-wrap: wrap; }
+  .filter-group input, .filter-group select { font-size: 0.8rem; padding: 7px 8px; flex: 1; min-width: 100px; }
+
+  /* 테이블 – 가로 스크롤 */
+  .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .data-table { min-width: 520px; font-size: 0.78rem; }
+  .data-table th { padding: 8px 8px; font-size: 0.7rem; white-space: nowrap; }
+  .data-table td { padding: 8px 8px; white-space: nowrap; }
+
+  /* 급여 결과 */
+  .result-net { padding: 12px; }
+  .net-amount { font-size: 1.2rem; }
+
+  /* 토스트 */
+  .toast { bottom: 72px; right: 12px; left: 12px; max-width: 100%; font-size: 0.85rem; }
 }
