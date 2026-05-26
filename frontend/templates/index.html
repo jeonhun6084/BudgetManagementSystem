@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>個人予算管理システム</title>
+<link rel="stylesheet" href="/static/css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="app">
+  <!-- サイドバー -->
+  <nav class="sidebar">
+    <div class="logo">
+      <span class="logo-icon">💴</span>
+      <span class="logo-text">予算管理</span>
+    </div>
+    <ul class="nav-links">
+      <li class="nav-item active" data-page="dashboard">
+        <span class="nav-icon">📊</span> ダッシュボード
+      </li>
+      <li class="nav-item" data-page="transactions">
+        <span class="nav-icon">📋</span> 収支明細
+      </li>
+      <li class="nav-item" data-page="salary">
+        <span class="nav-icon">💼</span> 給与計算
+      </li>
+      <li class="nav-item" data-page="expenses">
+        <span class="nav-icon">🧾</span> 経費申請
+      </li>
+      <li class="nav-item" data-page="settings">
+        <span class="nav-icon">⚙️</span> 設定
+      </li>
+    </ul>
+  </nav>
+
+  <!-- メインコンテンツ -->
+  <main class="main-content">
+    <!-- ダッシュボード -->
+    <section id="page-dashboard" class="page active">
+      <h1 class="page-title">ダッシュボード</h1>
+      <div class="period-selector">
+        <select id="dashboard-year"></select>
+        <select id="dashboard-month">
+          <option value="">年間</option>
+        </select>
+        <button class="btn btn-primary" onclick="loadDashboard()">表示</button>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card income">
+          <div class="stat-label">収入合計</div>
+          <div class="stat-value" id="total-income">¥0</div>
+        </div>
+        <div class="stat-card expense">
+          <div class="stat-label">支出合計</div>
+          <div class="stat-value" id="total-expense">¥0</div>
+        </div>
+        <div class="stat-card balance">
+          <div class="stat-label">収支差額</div>
+          <div class="stat-value" id="balance">¥0</div>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3>カテゴリ別支出</h3>
+          <canvas id="category-chart"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>月別収支推移</h3>
+          <canvas id="monthly-chart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- 収支明細 -->
+    <section id="page-transactions" class="page">
+      <h1 class="page-title">収支明細</h1>
+      <div class="toolbar">
+        <div class="filter-group">
+          <input type="date" id="filter-from" placeholder="開始日">
+          <input type="date" id="filter-to" placeholder="終了日">
+          <select id="filter-source">
+            <option value="">全ソース</option>
+            <option value="smbc">住友銀行</option>
+            <option value="vpass">Vpass</option>
+            <option value="manual">手動</option>
+          </select>
+          <select id="filter-type">
+            <option value="">全種別</option>
+            <option value="income">収入</option>
+            <option value="expense">支出</option>
+          </select>
+          <button class="btn btn-primary" onclick="loadTransactions()">検索</button>
+        </div>
+        <div class="import-group">
+          <label class="btn btn-secondary">
+            住友銀行CSV
+            <input type="file" accept=".csv" id="smbc-csv" onchange="importCSV('smbc')" hidden>
+          </label>
+          <label class="btn btn-secondary">
+            Vpass CSV
+            <input type="file" accept=".csv" id="vpass-csv" onchange="importCSV('vpass')" hidden>
+          </label>
+        </div>
+      </div>
+      <div class="table-container">
+        <table class="data-table" id="transactions-table">
+          <thead>
+            <tr>
+              <th>日付</th>
+              <th>摘要</th>
+              <th>金額</th>
+              <th>種別</th>
+              <th>カテゴリ</th>
+              <th>ソース</th>
+              <th>残高</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="transactions-body"></tbody>
+        </table>
+      </div>
+      <div id="transactions-pagination" class="pagination"></div>
+    </section>
+
+    <!-- 給与計算 -->
+    <section id="page-salary" class="page">
+      <h1 class="page-title">給与計算</h1>
+      <div class="salary-container">
+        <div class="salary-form card">
+          <h3>給与情報入力</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>対象年月</label>
+              <div class="inline-fields">
+                <input type="number" id="sal-year" value="" placeholder="年">
+                <input type="number" id="sal-month" value="" placeholder="月" min="1" max="12">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>基本給 (円)</label>
+              <input type="number" id="sal-base" placeholder="例: 280000">
+            </div>
+            <div class="form-group">
+              <label>所定労働時間 (時間/月)</label>
+              <input type="number" id="sal-hours" value="160" step="0.5">
+            </div>
+            <div class="form-group">
+              <label>時間外労働 25%割増 (時間)</label>
+              <input type="number" id="sal-ot125" value="0" step="0.5">
+            </div>
+            <div class="form-group">
+              <label>深夜・休日労働 35%割増 (時間)</label>
+              <input type="number" id="sal-ot135" value="0" step="0.5">
+            </div>
+            <div class="form-group">
+              <label>休日労働 (時間)</label>
+              <input type="number" id="sal-holiday" value="0" step="0.5">
+            </div>
+            <div class="form-group">
+              <label>通勤手当 (円/月)</label>
+              <input type="number" id="sal-commute" value="0">
+            </div>
+            <div class="form-group">
+              <label>その他手当 (円)</label>
+              <input type="number" id="sal-other" value="0">
+            </div>
+            <div class="form-group">
+              <label>住民税 月額 (円)</label>
+              <input type="number" id="sal-resident" value="0">
+            </div>
+            <div class="form-group">
+              <label>扶養人数</label>
+              <input type="number" id="sal-dependents" value="0" min="0">
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" onclick="calculateSalary(false)">計算</button>
+            <button class="btn btn-success" onclick="calculateSalary(true)">計算して保存</button>
+          </div>
+        </div>
+
+        <div class="salary-result card" id="salary-result" style="display:none">
+          <h3>計算結果</h3>
+          <div class="result-section">
+            <h4>支給額</h4>
+            <div class="result-row">
+              <span>基本給</span><span id="r-base">-</span>
+            </div>
+            <div class="result-row">
+              <span>時間外手当</span><span id="r-overtime">-</span>
+            </div>
+            <div class="result-row">
+              <span>通勤手当</span><span id="r-commute">-</span>
+            </div>
+            <div class="result-row">
+              <span>その他手当</span><span id="r-other">-</span>
+            </div>
+            <div class="result-row total">
+              <span>総支給額</span><span id="r-gross">-</span>
+            </div>
+          </div>
+          <div class="result-section">
+            <h4>控除額</h4>
+            <div class="result-row">
+              <span>健康保険</span><span id="r-health">-</span>
+            </div>
+            <div class="result-row">
+              <span>厚生年金</span><span id="r-pension">-</span>
+            </div>
+            <div class="result-row">
+              <span>雇用保険</span><span id="r-employment">-</span>
+            </div>
+            <div class="result-row">
+              <span>源泉所得税</span><span id="r-income-tax">-</span>
+            </div>
+            <div class="result-row">
+              <span>住民税</span><span id="r-resident-tax">-</span>
+            </div>
+            <div class="result-row total deduction">
+              <span>合計控除額</span><span id="r-total-deductions">-</span>
+            </div>
+          </div>
+          <div class="result-net">
+            <span>手取り額</span>
+            <span id="r-net" class="net-amount">-</span>
+          </div>
+          <div class="hourly-info">
+            <small id="r-hourly-info"></small>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mt-2">
+        <h3>給与履歴</h3>
+        <table class="data-table" id="salary-history-table">
+          <thead>
+            <tr>
+              <th>年月</th>
+              <th>基本給</th>
+              <th>残業時間</th>
+              <th>総支給</th>
+              <th>控除合計</th>
+              <th>手取り</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="salary-history-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 経費申請 -->
+    <section id="page-expenses" class="page">
+      <h1 class="page-title">経費申請 (楽楽清算)</h1>
+      <div class="expenses-container">
+        <div class="expense-form card">
+          <h3>新規経費申請</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>申請日</label>
+              <input type="date" id="exp-date">
+            </div>
+            <div class="form-group">
+              <label>タイトル</label>
+              <input type="text" id="exp-title" placeholder="例: 2024年5月分 公共料金">
+            </div>
+            <div class="form-group">
+              <label>カテゴリ</label>
+              <select id="exp-category">
+                <option value="光熱費">光熱費</option>
+                <option value="交通費">交通費</option>
+                <option value="通信費">通信費</option>
+                <option value="食費・接待費">食費・接待費</option>
+                <option value="消耗品費">消耗品費</option>
+                <option value="雑費">雑費</option>
+                <option value="その他">その他</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>金額 (円)</label>
+              <input type="number" id="exp-amount" placeholder="例: 5000">
+            </div>
+            <div class="form-group full-width">
+              <label>説明・備考</label>
+              <textarea id="exp-description" placeholder="詳細を入力してください"></textarea>
+            </div>
+          </div>
+          <div class="form-actions">
+            <label class="checkbox-label">
+              <input type="checkbox" id="exp-submit-rakuraku">
+              楽楽清算に自動送信する
+            </label>
+            <button class="btn btn-primary" onclick="createExpense()">申請作成</button>
+          </div>
+        </div>
+
+        <div class="card mt-2">
+          <h3>申請一覧</h3>
+          <table class="data-table" id="expenses-table">
+            <thead>
+              <tr>
+                <th>日付</th>
+                <th>タイトル</th>
+                <th>カテゴリ</th>
+                <th>金額</th>
+                <th>楽楽清算</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="expenses-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 設定 -->
+    <section id="page-settings" class="page">
+      <h1 class="page-title">設定</h1>
+      <div class="settings-container">
+        <div class="card">
+          <h3>認証情報設定</h3>
+          <p class="help-text">認証情報は <code>.env</code> ファイルに保存されます。このページからは表示のみです。</p>
+          <div class="settings-info">
+            <div class="setting-item">
+              <span class="setting-label">住友銀行 (SMBC)</span>
+              <span class="setting-value" id="smbc-status">未設定</span>
+            </div>
+            <div class="setting-item">
+              <span class="setting-label">Vpass</span>
+              <span class="setting-value" id="vpass-status">未設定</span>
+            </div>
+            <div class="setting-item">
+              <span class="setting-label">楽楽清算</span>
+              <span class="setting-value" id="rakuraku-status">未設定</span>
+            </div>
+          </div>
+          <div class="env-guide">
+            <h4>設定方法</h4>
+            <pre><code>cp .env.example .env
+# .envファイルを編集して認証情報を入力してください</code></pre>
+          </div>
+        </div>
+
+        <div class="card mt-2">
+          <h3>スクレイピング設定</h3>
+          <div class="form-group">
+            <label>自動取得スケジュール</label>
+            <select id="scrape-schedule">
+              <option value="manual">手動のみ</option>
+              <option value="daily">毎日自動取得</option>
+              <option value="weekly">毎週自動取得</option>
+            </select>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" onclick="triggerScraping()">今すぐ取得</button>
+          </div>
+          <div id="scrape-status"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="toast" class="toast"></div>
+<div id="loading" class="loading" style="display:none">読み込み中...</div>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>
