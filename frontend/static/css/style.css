@@ -480,3 +480,55 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); co
   /* 토스트 */
   .toast { bottom: 72px; right: 12px; left: 12px; max-width: 100%; font-size: 0.85rem; }
 }
+
+/* ===== 株式ページ ===== */
+.stock-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 20px;
+  border-bottom: 2px solid var(--border);
+}
+.stock-tab-btn {
+  padding: 10px 22px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.15s;
+}
+.stock-tab-btn:hover { color: var(--text); }
+.stock-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+.stock-tab-content { display: none; }
+.stock-tab-content.active { display: block; }
+
+/* 損益カラー */
+.pl-pos { color: var(--income-color); font-weight: 600; }
+.pl-neg { color: var(--expense-color); font-weight: 600; }
+.chg-pos { color: var(--income-color); }
+.chg-neg { color: var(--expense-color); }
+
+/* AI分析結果パネル */
+.ai-result {
+  margin-top: 20px;
+  padding: 20px;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  line-height: 1.7;
+}
+.ai-result h1,.ai-result h2,.ai-result h3,.ai-result h4 {
+  margin: 14px 0 6px; color: var(--text);
+}
+.ai-result p { margin-bottom: 8px; }
+.ai-result ul,.ai-result ol { padding-left: 22px; margin-bottom: 8px; }
+.ai-result li { margin-bottom: 4px; }
+.ai-stock-header {
+  display: flex; align-items: center; gap: 12px;
+  padding-bottom: 12px; margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.ai-stock-header .price { font-size: 1.4rem; font-weight: 700; }

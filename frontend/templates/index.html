@@ -6,6 +6,7 @@
 <title>個人予算管理システム</title>
 <link rel="stylesheet" href="/static/css/style.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
 </head>
 <body>
 <div class="app">
@@ -31,6 +32,10 @@
       <li class="nav-item" data-page="expenses">
         <span class="nav-icon">🧾</span>
         <span class="nav-label">経費申請</span>
+      </li>
+      <li class="nav-item" data-page="stocks">
+        <span class="nav-icon">📈</span>
+        <span class="nav-label">株式</span>
       </li>
       <li class="nav-item" data-page="settings">
         <span class="nav-icon">⚙️</span>
@@ -317,6 +322,163 @@
             </thead>
             <tbody id="expenses-body"></tbody>
           </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 株式 -->
+    <section id="page-stocks" class="page">
+      <h1 class="page-title">株式管理</h1>
+
+      <div class="stock-tabs">
+        <button class="stock-tab-btn active" onclick="switchStockTab('portfolio')">保有銘柄</button>
+        <button class="stock-tab-btn" onclick="switchStockTab('watchlist')">ウォッチリスト</button>
+        <button class="stock-tab-btn" onclick="switchStockTab('ai')">AI分析</button>
+      </div>
+
+      <!-- 保有銘柄 -->
+      <div id="stock-tab-portfolio" class="stock-tab-content active">
+        <div class="card">
+          <h3>銘柄追加</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>ティッカー</label>
+              <input type="text" id="h-ticker" placeholder="例: 7203, AAPL, 005930">
+            </div>
+            <div class="form-group">
+              <label>市場</label>
+              <select id="h-market">
+                <option value="JP">日本株 (TSE)</option>
+                <option value="US">米国株 (NYSE/NASDAQ)</option>
+                <option value="KS">韓国株 KOSPI</option>
+                <option value="KQ">韓国株 KOSDAQ</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>保有数量</label>
+              <input type="number" id="h-qty" placeholder="100" min="0" step="0.01">
+            </div>
+            <div class="form-group">
+              <label>平均取得単価</label>
+              <input type="number" id="h-price" placeholder="1500" min="0" step="0.01">
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" onclick="addHolding()">追加</button>
+            <button class="btn btn-secondary" onclick="loadHoldings()">更新</button>
+          </div>
+        </div>
+
+        <div class="stats-grid mt-2" id="portfolio-summary" style="display:none">
+          <div class="stat-card income">
+            <div class="stat-label">評価額合計 (JPY)</div>
+            <div class="stat-value" id="port-value-jpy">¥0</div>
+          </div>
+          <div class="stat-card income">
+            <div class="stat-label">評価額合計 (USD)</div>
+            <div class="stat-value" id="port-value-usd">$0</div>
+          </div>
+          <div class="stat-card" id="port-pl-card">
+            <div class="stat-label">損益合計 (JPY)</div>
+            <div class="stat-value" id="port-pl-jpy">¥0</div>
+          </div>
+        </div>
+
+        <div class="card mt-2">
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>銘柄</th>
+                  <th>市場</th>
+                  <th>数量</th>
+                  <th>平均単価</th>
+                  <th>現在値</th>
+                  <th>前日比</th>
+                  <th>評価額</th>
+                  <th>損益</th>
+                  <th>損益率</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="holdings-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ウォッチリスト -->
+      <div id="stock-tab-watchlist" class="stock-tab-content">
+        <div class="card">
+          <h3>銘柄追加</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>ティッカー</label>
+              <input type="text" id="w-ticker" placeholder="例: 9984, NVDA, 035420">
+            </div>
+            <div class="form-group">
+              <label>市場</label>
+              <select id="w-market">
+                <option value="JP">日本株 (TSE)</option>
+                <option value="US">米国株 (NYSE/NASDAQ)</option>
+                <option value="KS">韓国株 KOSPI</option>
+                <option value="KQ">韓国株 KOSDAQ</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" onclick="addWatchlistItem()">追加</button>
+            <button class="btn btn-secondary" onclick="loadWatchlist()">更新</button>
+          </div>
+        </div>
+
+        <div class="card mt-2">
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>銘柄</th>
+                  <th>市場</th>
+                  <th>現在値</th>
+                  <th>前日比</th>
+                  <th>時価総額</th>
+                  <th>PER</th>
+                  <th>PBR</th>
+                  <th>配当利回り</th>
+                  <th>52週高値/安値</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="watchlist-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI分析 -->
+      <div id="stock-tab-ai" class="stock-tab-content">
+        <div class="card">
+          <h3>AI株式分析 (Claude)</h3>
+          <p class="help-text" style="margin-bottom:16px">銘柄コードを入力するとClaudeが財務指標・投資ポイント・リスクを分析します。</p>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>ティッカー</label>
+              <input type="text" id="ai-ticker" placeholder="例: 7203, AAPL, 005930">
+            </div>
+            <div class="form-group">
+              <label>市場</label>
+              <select id="ai-market">
+                <option value="JP">日本株 (TSE)</option>
+                <option value="US">米国株 (NYSE/NASDAQ)</option>
+                <option value="KS">韓国株 KOSPI</option>
+                <option value="KQ">韓国株 KOSDAQ</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" onclick="analyzeStock()">AI分析実行</button>
+          </div>
+          <div id="ai-result" style="display:none" class="ai-result"></div>
         </div>
       </div>
     </section>

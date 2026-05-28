@@ -96,3 +96,34 @@ class Settings(Base):
     key = Column(String(100), unique=True, nullable=False)
     value = Column(Text)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class StockMarket(str, enum.Enum):
+    JP = "JP"
+    US = "US"
+    KS = "KS"
+    KQ = "KQ"
+
+
+class StockHolding(Base):
+    __tablename__ = "stock_holdings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticker = Column(String(20), nullable=False)
+    market = Column(String(10), nullable=False)
+    name = Column(String(200))
+    quantity = Column(Float, nullable=False)
+    avg_buy_price = Column(Float, nullable=False)
+    memo = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class StockWatchlist(Base):
+    __tablename__ = "stock_watchlist"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticker = Column(String(20), nullable=False)
+    market = Column(String(10), nullable=False)
+    name = Column(String(200))
+    memo = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)

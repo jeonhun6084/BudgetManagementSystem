@@ -9,7 +9,7 @@ import os
 load_dotenv()
 
 from .database.db import init_db
-from .routers import transactions, salary, expenses
+from .routers import transactions, salary, expenses, stocks
 
 app = FastAPI(title="個人予算管理システム", version="1.0.0")
 
@@ -23,6 +23,7 @@ app.add_middleware(
 app.include_router(transactions.router)
 app.include_router(salary.router)
 app.include_router(expenses.router)
+app.include_router(stocks.router)
 
 # フロントエンド静的ファイルの提供
 frontend_dir = Path(__file__).parent.parent.parent / "frontend"

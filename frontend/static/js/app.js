@@ -17,6 +17,7 @@ document.querySelectorAll('.nav-item').forEach(item => {
     if (page === 'salary') loadSalaryHistory();
     if (page === 'expenses') loadExpenses();
     if (page === 'settings') checkSettings();
+    if (page === 'stocks') loadStocks();
   });
 });
 
@@ -443,6 +444,205 @@ function showToast(message, type = '') {
 
 function showLoading(show) {
   document.getElementById('loading').style.display = show ? 'block' : 'none';
+}
+
+// ===== 株式管理 =====
+const MARKET_LABELS = { JP: '日本株', US: '米国株', KS: 'KOSPI', KQ: 'KOSDAQ' };
+
+function switchStockTab(tab) {
+  document.querySelectorAll('.stock-tab-btn').forEach((b, i) => {
+    const tabs = ['portfolio', 'watchlist', 'ai'];
+    b.classList.toggle('active', tabs[i] === tab);
+  });
+  document.querySelectorAll('.stock-tab-content').forEach(el => el.classList.remove('active'));
+  document.getElementById(`stock-tab-${tab}`).classList.add('active');
+}
+
+function loadStocks() {
+  loadHoldings();
+  loadWatchlist();
+}
+
+async function loadHoldings() {
+  const data = await fetchAPI('/api/stocks/holdings');
+  if (!data) return;
+  const tbody = document.getElementById('holdings-body');
+  if (!data.items.length) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-muted)">保有銘柄がありません</td></tr>';
+    document.getElementById('portfolio-summary').style.display = 'none';
+    return;
+  }
+
+  let totalJPY = 0, costJPY = 0, totalUSD = 0;
+  tbody.innerHTML = data.items.map(h => {
+    if (h.currency === 'JPY') { totalJPY += h.market_value; costJPY += h.cost_basis; }
+    if (h.currency === 'USD') totalUSD += h.market_value;
+    const chgCls = h.change_pct >= 0 ? 'chg-pos' : 'chg-neg';
+    const plCls = h.pl >= 0 ? 'pl-pos' : 'pl-neg';
+    const chgSign = h.change_pct >= 0 ? '+' : '';
+    const plSign = h.pl >= 0 ? '+' : '';
+    const cur = currencySymbol(h.currency);
+    return `<tr>
+      <td><strong>${escapeHtml(h.name || h.ticker)}</strong><br><small style="color:var(--text-muted)">${h.ticker}</small></td>
+      <td>${MARKET_LABELS[h.market] || h.market}</td>
+      <td>${h.quantity.toLocaleString()}</td>
+      <td>${cur}${h.avg_buy_price.toLocaleString(undefined, {minimumFractionDigits:0,maximumFractionDigits:2})}</td>
+      <td>${cur}${(h.current_price||0).toLocaleString(undefined, {minimumFractionDigits:0,maximumFractionDigits:2})}</td>
+      <td class="${chgCls}">${chgSign}${h.change_pct.toFixed(2)}%</td>
+      <td>${cur}${Math.round(h.market_value).toLocaleString()}</td>
+      <td class="${plCls}">${plSign}${cur}${Math.round(Math.abs(h.pl)).toLocaleString()}</td>
+      <td class="${plCls}">${plSign}${h.pl_pct.toFixed(2)}%</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteHolding(${h.id})">削除</button></td>
+    </tr>`;
+  }).join('');
+
+  const sumEl = document.getElementById('portfolio-summary');
+  sumEl.style.display = 'grid';
+  document.getElementById('port-value-jpy').textContent = '¥' + Math.round(totalJPY).toLocaleString();
+  document.getElementById('port-value-usd').textContent = '$' + Math.round(totalUSD).toLocaleString();
+  const plJPY = totalJPY - costJPY;
+  const plEl = document.getElementById('port-pl-jpy');
+  plEl.textContent = (plJPY >= 0 ? '+¥' : '-¥') + Math.round(Math.abs(plJPY)).toLocaleString();
+  plEl.style.color = plJPY >= 0 ? 'var(--income-color)' : 'var(--expense-color)';
+}
+
+async function addHolding() {
+  const ticker = document.getElementById('h-ticker').value.trim();
+  const market = document.getElementById('h-market').value;
+  const qty = parseFloat(document.getElementById('h-qty').value);
+  const price = parseFloat(document.getElementById('h-price').value);
+  if (!ticker || isNaN(qty) || isNaN(price)) { showToast('全項目を入力してください', 'error'); return; }
+  const r = await fetchAPI('/api/stocks/holdings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticker, market, quantity: qty, avg_buy_price: price })
+  });
+  if (r) {
+    showToast(r.message || '追加しました', 'success');
+    document.getElementById('h-ticker').value = '';
+    document.getElementById('h-qty').value = '';
+    document.getElementById('h-price').value = '';
+    loadHoldings();
+  }
+}
+
+async function deleteHolding(id) {
+  if (!confirm('削除しますか？')) return;
+  const r = await fetchAPI(`/api/stocks/holdings/${id}`, { method: 'DELETE' });
+  if (r) { showToast('削除しました'); loadHoldings(); }
+}
+
+async function loadWatchlist() {
+  const data = await fetchAPI('/api/stocks/watchlist');
+  if (!data) return;
+  const tbody = document.getElementById('watchlist-body');
+  if (!data.items.length) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-muted)">ウォッチリストが空です</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.items.map(w => {
+    const chgCls = w.change_pct >= 0 ? 'chg-pos' : 'chg-neg';
+    const chgSign = w.change_pct >= 0 ? '+' : '';
+    const cur = currencySymbol(w.currency);
+    const mcap = w.market_cap ? formatLargeNum(w.market_cap, w.currency) : 'N/A';
+    const per = w.pe_ratio ? w.pe_ratio.toFixed(1) : 'N/A';
+    const pbr = w.pbr ? w.pbr.toFixed(2) : 'N/A';
+    const div = w.dividend_yield ? (w.dividend_yield * 100).toFixed(2) + '%' : 'N/A';
+    const hi = w.week52_high ? cur + w.week52_high.toLocaleString(undefined,{maximumFractionDigits:0}) : 'N/A';
+    const lo = w.week52_low ? cur + w.week52_low.toLocaleString(undefined,{maximumFractionDigits:0}) : 'N/A';
+    return `<tr>
+      <td><strong>${escapeHtml(w.name || w.ticker)}</strong><br><small style="color:var(--text-muted)">${w.ticker}</small></td>
+      <td>${MARKET_LABELS[w.market] || w.market}</td>
+      <td>${cur}${(w.current_price||0).toLocaleString(undefined,{maximumFractionDigits:2})}</td>
+      <td class="${chgCls}">${chgSign}${w.change_pct.toFixed(2)}%</td>
+      <td>${mcap}</td>
+      <td>${per}</td>
+      <td>${pbr}</td>
+      <td>${div}</td>
+      <td style="white-space:nowrap">${hi} / ${lo}</td>
+      <td>
+        <button class="btn btn-secondary btn-sm" onclick="watchToAI('${w.ticker}','${w.market}')">AI分析</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteWatchlistItem(${w.id})">削除</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function addWatchlistItem() {
+  const ticker = document.getElementById('w-ticker').value.trim();
+  const market = document.getElementById('w-market').value;
+  if (!ticker) { showToast('ティッカーを入力してください', 'error'); return; }
+  const r = await fetchAPI('/api/stocks/watchlist', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticker, market })
+  });
+  if (r) {
+    showToast(r.message || '追加しました', 'success');
+    document.getElementById('w-ticker').value = '';
+    loadWatchlist();
+  }
+}
+
+async function deleteWatchlistItem(id) {
+  if (!confirm('削除しますか？')) return;
+  const r = await fetchAPI(`/api/stocks/watchlist/${id}`, { method: 'DELETE' });
+  if (r) { showToast('削除しました'); loadWatchlist(); }
+}
+
+function watchToAI(ticker, market) {
+  switchStockTab('ai');
+  document.getElementById('ai-ticker').value = ticker;
+  document.getElementById('ai-market').value = market;
+  analyzeStock();
+}
+
+async function analyzeStock() {
+  const ticker = document.getElementById('ai-ticker').value.trim();
+  const market = document.getElementById('ai-market').value;
+  if (!ticker) { showToast('ティッカーを入力してください', 'error'); return; }
+  const resultEl = document.getElementById('ai-result');
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '<p style="color:var(--text-muted)">Claudeが分析中... しばらくお待ちください。</p>';
+
+  const data = await fetchAPI('/api/stocks/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticker, market })
+  });
+  if (!data) { resultEl.style.display = 'none'; return; }
+
+  const info = data.stock_info;
+  const cur = currencySymbol(info.currency);
+  const chgCls = (info.change_pct || 0) >= 0 ? 'chg-pos' : 'chg-neg';
+  const chgSign = (info.change_pct || 0) >= 0 ? '+' : '';
+  resultEl.innerHTML = `
+    <div class="ai-stock-header">
+      <div>
+        <strong style="font-size:1.1rem">${escapeHtml(info.name || ticker)}</strong>
+        <small style="color:var(--text-muted); margin-left:8px">${ticker} · ${MARKET_LABELS[market]}</small>
+      </div>
+      <div class="price">${cur}${(info.price||0).toLocaleString(undefined,{maximumFractionDigits:2})}</div>
+      <div class="${chgCls}">${chgSign}${(info.change_pct||0).toFixed(2)}%</div>
+    </div>
+    <div>${marked.parse(data.analysis)}</div>`;
+}
+
+function currencySymbol(currency) {
+  return { JPY: '¥', USD: '$', KRW: '₩', EUR: '€' }[currency] || '';
+}
+
+function formatLargeNum(n, currency) {
+  const sym = currencySymbol(currency);
+  if (currency === 'JPY' || currency === 'KRW') {
+    if (n >= 1e12) return sym + (n / 1e12).toFixed(1) + '兆';
+    if (n >= 1e8) return sym + (n / 1e8).toFixed(1) + '億';
+    return sym + n.toLocaleString();
+  }
+  if (n >= 1e12) return sym + (n / 1e12).toFixed(2) + 'T';
+  if (n >= 1e9) return sym + (n / 1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return sym + (n / 1e6).toFixed(2) + 'M';
+  return sym + n.toLocaleString();
 }
 
 // 初期化
