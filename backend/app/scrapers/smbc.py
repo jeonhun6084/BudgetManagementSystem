@@ -12,10 +12,10 @@ import re
 class SMBCScraper:
     LOGIN_URL = "https://direct.smbc.co.jp/aib/aibgncms/login.do"
 
-    def __init__(self, user_id: str, password: str, branch_code: str = ""):
-        self.user_id = user_id
-        self.password = password
-        self.branch_code = branch_code
+    def __init__(self, branch_code: str, account_number: str, password: str):
+        self.branch_code = branch_code      # 支店番号 (3자리)
+        self.account_number = account_number  # 口座番号 (7자리)
+        self.password = password            # ログインパスワード
         self._browser: Optional[Browser] = None
         self._page: Optional[Page] = None
 
@@ -31,24 +31,38 @@ class SMBCScraper:
         await self._playwright.stop()
 
     async def login(self) -> bool:
-        """インターネットバンキングにログインする"""
+        """SMBCインターネットバンキングにログイン (支店番号 + 口座番号 + パスワード)"""
         page = self._page
         await page.goto(self.LOGIN_URL)
         await page.wait_for_load_state("networkidle")
 
-        # ユーザーID入力
-        await page.fill('input[name="username"], input[id*="user"], input[type="text"]', self.user_id)
-        # パスワード入力
-        await page.fill('input[name="password"], input[type="password"]', self.password)
-        # ログインボタンクリック
-        await page.click('button[type="submit"], input[type="submit"], a:has-text("ログイン")')
+        # 支店番号入力 (3桁)
+        await page.fill(
+            'input[name*="branch"], input[id*="branch"], input[name*="tenpo"], '
+            'input[id*="tenpo"], input[placeholder*="支店"], input[placeholder*="店番"]',
+            self.branch_code
+        )
+        # 口座番号入力 (7桁)
+        await page.fill(
+            'input[name*="account"], input[id*="account"], input[name*="koza"], '
+            'input[id*="koza"], input[placeholder*="口座"]',
+            self.account_number
+        )
+        # ログインパスワード入力
+        await page.fill('input[name*="password"], input[type="password"]', self.password)
 
+        # ログインボタンクリック
+        await page.click(
+            'button[type="submit"], input[type="submit"], '
+            'a:has-text("ログイン"), button:has-text("ログイン")'
+        )
         await page.wait_for_load_state("networkidle")
 
-        # ワンタイムパスワードが必要な場合はユーザーに通知
-        if "ワンタイムパスワード" in await page.content() or "one-time" in (await page.content()).lower():
-            print("[SMBC] ワンタイムパスワードが必要です。ブラウザ画面で入力してください。")
-            await page.wait_for_timeout(30000)  # 30秒待機
+        # ワンタイムパスワード・乱数表が必要な場合はユーザーが手動入力
+        content = await page.content()
+        if "ワンタイムパスワード" in content or "乱数表" in content:
+            print("[SMBC] 追加認証が必要です。ブラウザ画面で入力してください。(最大60秒)")
+            await page.wait_for_timeout(60000)
 
         return "ログアウト" in await page.content() or "口座" in await page.content()
 
