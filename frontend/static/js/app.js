@@ -391,6 +391,43 @@ async function deleteExpense(id) {
   }
 }
 
+// フォルダスキャン
+async function scanFolder() {
+  const folder = document.getElementById('smbc-folder-path').value.trim();
+  if (!folder) { showToast('フォルダパスを入力してください', 'error'); return; }
+  const statusEl = document.getElementById('folder-status');
+  statusEl.style.display = 'block';
+  statusEl.innerHTML = '⏳ スキャン中...';
+  const r = await fetchAPI('/api/transactions/import/smbc-folder', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ folder, move_processed: true })
+  });
+  if (!r) { statusEl.style.display = 'none'; return; }
+  const details = (r.details || []).map(d =>
+    d.error
+      ? `<span style="color:var(--expense-color)">❌ ${escapeHtml(d.file)}: ${escapeHtml(d.error)}</span>`
+      : `✅ ${escapeHtml(d.file)} — ${d.imported}件インポート、${d.skipped}件スキップ`
+  ).join('<br>');
+  statusEl.innerHTML = `<strong>${r.message}</strong>${details ? '<br>' + details : ''}`;
+  if (r.imported > 0) loadTransactions();
+}
+
+async function checkFolder() {
+  const folder = document.getElementById('smbc-folder-path').value.trim();
+  if (!folder) return;
+  const r = await fetchAPI(`/api/transactions/import/smbc-folder/files?folder=${encodeURIComponent(folder)}`);
+  const statusEl = document.getElementById('folder-status');
+  statusEl.style.display = 'block';
+  if (!r || !r.exists) {
+    statusEl.innerHTML = '⚠️ フォルダが見つかりません';
+    return;
+  }
+  statusEl.innerHTML = r.count === 0
+    ? '📂 CSVファイルがありません'
+    : `📂 ${r.count}件のCSVファイルが見つかりました:<br>` + r.files.map(f => `　• ${escapeHtml(f)}`).join('<br>');
+}
+
 // 設定確認
 function checkSettings() {
   // 実際の設定状態はバックエンドで確認するが、ここでは表示のみ

@@ -87,6 +87,25 @@
     <!-- 収支明細 -->
     <section id="page-transactions" class="page">
       <h1 class="page-title">収支明細</h1>
+
+      <!-- SMBC CSV取得案内バナー -->
+      <div class="smbc-banner">
+        <span>📥 SMBCの明細CSV取得:</span>
+        <a href="https://direct.smbc.co.jp" target="_blank" class="smbc-link">インターネットバンキングを開く</a>
+        <span class="smbc-hint">→ 口座照会・明細 → 入出金明細照会 → ファイルダウンロード(CSV)</span>
+      </div>
+
+      <!-- フォルダ自動スキャン -->
+      <div class="card mb-3">
+        <div class="folder-scan-row">
+          <span class="folder-label">📂 CSVフォルダ</span>
+          <input type="text" id="smbc-folder-path" value="~/Downloads" placeholder="~/Downloads" class="folder-input">
+          <button class="btn btn-primary" onclick="scanFolder()">スキャン＆インポート</button>
+          <button class="btn btn-secondary" onclick="checkFolder()">ファイル確認</button>
+        </div>
+        <div id="folder-status" class="folder-status" style="display:none"></div>
+      </div>
+
       <div class="toolbar">
         <div class="filter-group">
           <input type="date" id="filter-from" placeholder="開始日">

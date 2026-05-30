@@ -532,3 +532,54 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); co
   border-bottom: 1px solid var(--border);
 }
 .ai-stock-header .price { font-size: 1.4rem; font-weight: 700; }
+
+/* ===== SMBC バナー・フォルダスキャン ===== */
+.smbc-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  margin-bottom: 14px;
+  font-size: 0.85rem;
+  flex-wrap: wrap;
+}
+.smbc-link {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+  padding: 3px 10px;
+  background: white;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+}
+.smbc-link:hover { background: #dbeafe; }
+.smbc-hint { color: var(--text-muted); font-size: 0.8rem; }
+
+.mb-3 { margin-bottom: 14px; }
+.folder-scan-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.folder-label { font-weight: 600; font-size: 0.9rem; white-space: nowrap; }
+.folder-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: monospace;
+}
+.folder-status {
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}

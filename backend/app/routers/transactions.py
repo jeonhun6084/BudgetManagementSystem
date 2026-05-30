@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, extract, desc
+from sqlalchemy import select, func, extract, desc, and_
 from datetime import date, datetime, timedelta
 from typing import Optional
-import tempfile, os
+from pathlib import Path
+from pydantic import BaseModel
+import tempfile, os, glob, shutil
 
 from ..database.db import get_db
 from ..models.models import Transaction, TransactionType, DataSource
@@ -220,6 +222,103 @@ async def update_transaction(
 
     await db.commit()
     return {"id": tx.id, "category": tx.category, "memo": tx.memo}
+
+
+class FolderScanRequest(BaseModel):
+    folder: str
+    move_processed: bool = True  # 임포트 완료 파일을 processed/ 폴더로 이동
+
+
+async def _is_duplicate(db: AsyncSession, t: dict) -> bool:
+    stmt = select(Transaction).where(
+        and_(
+            Transaction.date == t["date"],
+            Transaction.amount == t["amount"],
+            Transaction.description == t["description"],
+            Transaction.source == t["source"],
+        )
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none() is not None
+
+
+async def _save_transactions(db: AsyncSession, transactions: list, source: DataSource):
+    added = skipped = categorized = 0
+    for t in transactions:
+        t["source"] = source.value
+        if await _is_duplicate(db, t):
+            skipped += 1
+            continue
+        tx = Transaction(
+            date=t["date"],
+            description=t["description"],
+            amount=t["amount"],
+            transaction_type=t["transaction_type"],
+            category=t.get("category"),
+            source=source,
+            balance=t.get("balance"),
+        )
+        db.add(tx)
+        added += 1
+        if t.get("category"):
+            categorized += 1
+    await db.commit()
+    return added, skipped, categorized
+
+
+@router.post("/import/smbc-folder")
+async def import_smbc_folder(body: FolderScanRequest, db: AsyncSession = Depends(get_db)):
+    """指定フォルダ内の全CSVを一括インポートする"""
+    folder = Path(body.folder).expanduser()
+    if not folder.exists():
+        raise HTTPException(400, f"フォルダが見つかりません: {folder}")
+
+    csv_files = sorted(folder.glob("*.csv")) + sorted(folder.glob("*.CSV"))
+    if not csv_files:
+        return {"files": 0, "imported": 0, "skipped": 0, "message": "CSVファイルが見つかりません"}
+
+    processed_dir = folder / "processed"
+    if body.move_processed:
+        processed_dir.mkdir(exist_ok=True)
+
+    total_added = total_skipped = total_categorized = 0
+    file_results = []
+
+    for csv_file in csv_files:
+        try:
+            transactions = await SMBCScraper.import_from_csv(str(csv_file))
+            added, skipped, categorized = await _save_transactions(db, transactions, DataSource.smbc)
+            total_added += added
+            total_skipped += skipped
+            total_categorized += categorized
+            file_results.append({"file": csv_file.name, "imported": added, "skipped": skipped})
+            if body.move_processed and added > 0:
+                shutil.move(str(csv_file), str(processed_dir / csv_file.name))
+        except Exception as e:
+            file_results.append({"file": csv_file.name, "error": str(e)})
+
+    return {
+        "files": len(csv_files),
+        "imported": total_added,
+        "skipped": total_skipped,
+        "categorized": total_categorized,
+        "details": file_results,
+        "message": f"{len(csv_files)}件のファイルから{total_added}件インポート（重複{total_skipped}件スキップ、うち{total_categorized}件を自動分類）",
+    }
+
+
+@router.get("/import/smbc-folder/files")
+async def list_smbc_folder_files(folder: str):
+    """フォルダ内のCSVファイル一覧を返す"""
+    p = Path(folder).expanduser()
+    if not p.exists():
+        return {"exists": False, "files": []}
+    files = sorted(p.glob("*.csv")) + sorted(p.glob("*.CSV"))
+    return {
+        "exists": True,
+        "files": [f.name for f in files],
+        "count": len(files),
+    }
 
 
 @router.delete("/{transaction_id}")
