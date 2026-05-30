@@ -162,26 +162,45 @@ class SMBCScraper:
 
     @classmethod
     async def import_from_csv(cls, csv_path: str) -> list[dict]:
-        """SMBCのCSVファイルから取引データをインポートする"""
+        """SMBCのCSVファイルから取引データをインポートする
+        実際の列順: 年月日, お引出し, お預入れ, お取り扱い内容, 残高, メモ, ラベル
+        """
         import csv
         transactions = []
-        with open(csv_path, encoding="shift_jis", errors="replace") as f:
+        for enc in ("cp932", "shift_jis", "utf-8-sig", "utf-8"):
+            try:
+                with open(csv_path, encoding=enc, errors="strict") as f:
+                    f.read()
+                break
+            except (UnicodeDecodeError, LookupError):
+                enc = None
+        if enc is None:
+            enc = "cp932"
+
+        with open(csv_path, encoding=enc, errors="replace") as f:
             reader = csv.reader(f)
             for row in reader:
                 try:
                     if len(row) < 4:
                         continue
                     date_text = row[0].strip()
-                    description = row[1].strip()
-                    amount_out = row[2].strip().replace(",", "") if len(row) > 2 else ""
-                    amount_in = row[3].strip().replace(",", "") if len(row) > 3 else ""
-                    balance = row[4].strip().replace(",", "") if len(row) > 4 else ""
-
-                    parsed_date = cls._parse_date_static(date_text)
-                    if not parsed_date or not description:
+                    # ヘッダー行スキップ
+                    if date_text in ("年月日", "日付", "取引日", ""):
                         continue
 
-                    if amount_in and amount_in not in ["", "0"]:
+                    parsed_date = cls._parse_date_static(date_text)
+                    if not parsed_date:
+                        continue
+
+                    amount_out = row[1].strip().replace(",", "")  # お引出し (지출)
+                    amount_in  = row[2].strip().replace(",", "")  # お預入れ (수입)
+                    description = row[3].strip()                   # お取り扱い内容
+                    balance     = row[4].strip().replace(",", "") if len(row) > 4 else ""
+
+                    if not description:
+                        continue
+
+                    if amount_in and amount_in not in ("", "0"):
                         transactions.append({
                             "date": parsed_date,
                             "description": description,
@@ -190,7 +209,7 @@ class SMBCScraper:
                             "source": "smbc",
                             "balance": float(balance) if balance else None,
                         })
-                    elif amount_out and amount_out not in ["", "0"]:
+                    elif amount_out and amount_out not in ("", "0"):
                         transactions.append({
                             "date": parsed_date,
                             "description": description,
@@ -205,15 +224,11 @@ class SMBCScraper:
 
     @staticmethod
     def _parse_date_static(date_text: str):
-        patterns = [
-            ("%Y/%m/%d", r"\d{4}/\d{2}/\d{2}"),
-            ("%Y-%m-%d", r"\d{4}-\d{2}-\d{2}"),
-            ("%Y年%m月%d日", r"\d{4}年\d{2}月\d{2}日"),
-        ]
-        for fmt, pattern in patterns:
-            if re.search(pattern, date_text):
-                try:
-                    return datetime.strptime(date_text.strip(), fmt).date()
-                except ValueError:
-                    pass
+        # 2026/5/29 や 2026/05/29 など1桁・2桁どちらも対応
+        m = re.search(r"(\d{4})[/\-年](\d{1,2})[/\-月](\d{1,2})", date_text)
+        if m:
+            try:
+                return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+            except ValueError:
+                pass
         return None
