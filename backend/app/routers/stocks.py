@@ -208,9 +208,9 @@ async def delete_watchlist(item_id: int, db: AsyncSession = Depends(get_db)):
 async def analyze_stock(body: AnalyzeRequest):
     if body.market not in MARKET_SUFFIX:
         raise HTTPException(400, "Invalid market")
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        raise HTTPException(400, "ANTHROPIC_API_KEY가 .env에 설정되지 않았습니다")
+        raise HTTPException(400, "GEMINI_API_KEY가 .env에 설정되지 않았습니다. aistudio.google.com에서 무료 발급 가능합니다.")
 
     symbol = to_yf_symbol(body.ticker, body.market)
     info = await fetch_stock_info(symbol)
@@ -235,14 +235,7 @@ PBR: {fmt(info.get('pbr'))}
 섹터: {info.get('sector', 'N/A')}
 업종: {info.get('industry', 'N/A')}"""
 
-    import anthropic as anthropic_sdk
-    client = anthropic_sdk.AsyncAnthropic(api_key=api_key)
-    message = await client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=1500,
-        messages=[{
-            "role": "user",
-            "content": f"""아래 주식을 일본 거주 개인 투자자 관점에서 한국어로 분석해주세요.
+    prompt = f"""아래 주식을 일본 거주 개인 투자자 관점에서 한국어로 분석해주세요.
 
 {stock_data}
 
@@ -254,11 +247,18 @@ PBR: {fmt(info.get('pbr'))}
 5. **투자 의견** (매수/관망/보류 + 한 줄 이유)
 
 마크다운 형식으로 간결하게 답변해주세요."""
-        }]
-    )
+
+    def _call_gemini():
+        import google.generativeai as genai
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel("gemini-2.0-flash")
+        response = model.generate_content(prompt)
+        return response.text
+
+    analysis_text = await asyncio.to_thread(_call_gemini)
     return {
         "ticker": body.ticker,
         "market": body.market,
         "stock_info": info,
-        "analysis": message.content[0].text,
+        "analysis": analysis_text,
     }
