@@ -152,19 +152,23 @@ async def import_smbc_csv(file: UploadFile = File(...), db: AsyncSession = Depen
     try:
         transactions = await SMBCScraper.import_from_csv(tmp_path)
         added = 0
+        categorized = 0
         for t in transactions:
             tx = Transaction(
                 date=t["date"],
                 description=t["description"],
                 amount=t["amount"],
                 transaction_type=t["transaction_type"],
+                category=t.get("category"),
                 source=DataSource.smbc,
                 balance=t.get("balance"),
             )
             db.add(tx)
             added += 1
+            if t.get("category"):
+                categorized += 1
         await db.commit()
-        return {"imported": added, "message": f"{added}件のデータをインポートしました"}
+        return {"imported": added, "message": f"{added}件インポート（うち{categorized}件を自動分類）"}
     finally:
         os.unlink(tmp_path)
 

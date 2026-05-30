@@ -201,20 +201,26 @@ class SMBCScraper:
                         continue
 
                     if amount_in and amount_in not in ("", "0"):
+                        tx_type = "income"
+                        from ..services.categorizer import categorize
                         transactions.append({
                             "date": parsed_date,
                             "description": description,
                             "amount": float(amount_in),
-                            "transaction_type": "income",
+                            "transaction_type": tx_type,
+                            "category": categorize(description, tx_type),
                             "source": "smbc",
                             "balance": float(balance) if balance else None,
                         })
                     elif amount_out and amount_out not in ("", "0"):
+                        tx_type = "expense"
+                        from ..services.categorizer import categorize
                         transactions.append({
                             "date": parsed_date,
                             "description": description,
                             "amount": float(amount_out),
-                            "transaction_type": "expense",
+                            "transaction_type": tx_type,
+                            "category": categorize(description, tx_type),
                             "source": "smbc",
                             "balance": float(balance) if balance else None,
                         })
