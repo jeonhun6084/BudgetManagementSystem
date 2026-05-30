@@ -583,3 +583,22 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); co
   font-size: 0.85rem;
   line-height: 1.6;
 }
+
+/* スキャン中ローディング */
+.scan-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--primary);
+  font-weight: 500;
+}
+.scan-spinner {
+  width: 18px;
+  height: 18px;
+  border: 3px solid #bfdbfe;
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }

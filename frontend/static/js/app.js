@@ -395,21 +395,41 @@ async function deleteExpense(id) {
 async function scanFolder() {
   const folder = document.getElementById('smbc-folder-path').value.trim();
   if (!folder) { showToast('フォルダパスを入力してください', 'error'); return; }
+
+  const btn = document.querySelector('button[onclick="scanFolder()"]');
   const statusEl = document.getElementById('folder-status');
+
+  // 버튼 로딩 상태
+  btn.disabled = true;
+  btn.textContent = 'スキャン中...';
+  btn.style.opacity = '0.7';
   statusEl.style.display = 'block';
-  statusEl.innerHTML = '⏳ スキャン中...';
+  statusEl.innerHTML = `
+    <div class="scan-loading">
+      <span class="scan-spinner"></span>
+      CSVファイルをスキャンしてインポート中です。しばらくお待ちください...
+    </div>`;
+
   const r = await fetchAPI('/api/transactions/import/smbc-folder', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ folder, move_processed: true })
   });
+
+  // 버튼 복원
+  btn.disabled = false;
+  btn.textContent = 'スキャン＆インポート';
+  btn.style.opacity = '1';
+
   if (!r) { statusEl.style.display = 'none'; return; }
+
   const details = (r.details || []).map(d =>
     d.error
-      ? `<span style="color:var(--expense-color)">❌ ${escapeHtml(d.file)}: ${escapeHtml(d.error)}</span>`
-      : `✅ ${escapeHtml(d.file)} — ${d.imported}件インポート、${d.skipped}件スキップ`
-  ).join('<br>');
-  statusEl.innerHTML = `<strong>${r.message}</strong>${details ? '<br>' + details : ''}`;
+      ? `<div style="color:var(--expense-color)">❌ ${escapeHtml(d.file)}: ${escapeHtml(d.error)}</div>`
+      : `<div>✅ ${escapeHtml(d.file)} — ${d.imported}件インポート、${d.skipped}件スキップ</div>`
+  ).join('');
+  const icon = r.imported > 0 ? '✅' : 'ℹ️';
+  statusEl.innerHTML = `<strong>${icon} ${escapeHtml(r.message)}</strong>${details ? '<div style="margin-top:6px">'+details+'</div>' : ''}`;
   if (r.imported > 0) loadTransactions();
 }
 
