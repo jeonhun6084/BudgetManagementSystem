@@ -266,10 +266,15 @@ async def _save_transactions(db: AsyncSession, transactions: list, source: DataS
     return added, skipped, categorized
 
 
+PROJECT_ROOT = Path(__file__).parent.parent.parent.parent  # BudgetManagementSystem/
+
+
 @router.post("/import/smbc-folder")
 async def import_smbc_folder(body: FolderScanRequest, db: AsyncSession = Depends(get_db)):
     """指定フォルダ内の全CSVを一括インポートする"""
     folder = Path(body.folder).expanduser()
+    if not folder.is_absolute():
+        folder = PROJECT_ROOT / folder
     if not folder.exists():
         raise HTTPException(400, f"フォルダが見つかりません: {folder}")
 
@@ -311,6 +316,8 @@ async def import_smbc_folder(body: FolderScanRequest, db: AsyncSession = Depends
 async def list_smbc_folder_files(folder: str):
     """フォルダ内のCSVファイル一覧を返す"""
     p = Path(folder).expanduser()
+    if not p.is_absolute():
+        p = PROJECT_ROOT / p
     if not p.exists():
         return {"exists": False, "files": []}
     files = sorted(p.glob("*.csv")) + sorted(p.glob("*.CSV"))
